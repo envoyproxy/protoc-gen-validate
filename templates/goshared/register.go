@@ -2,7 +2,8 @@ package goshared
 
 import (
 	"fmt"
-	"github.com/iancoleman/strcase"
+	"html"
+	"os"
 	"reflect"
 	"strings"
 	"text/template"
@@ -11,8 +12,17 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/duration"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/iancoleman/strcase"
 	"github.com/lyft/protoc-gen-star"
 	"github.com/lyft/protoc-gen-star/lang/go"
+	"github.com/qor/i18n"
+	"github.com/qor/i18n/backends/yaml"
+)
+
+const (
+	envVarLocalesDir   = "PROTOC_GEN_VALIDATE_LOCALES_DIR"
+	envVarLocaleChoice = "LANG" // standard environment variable
+	// for details see https://www.gnu.org/software/libc/manual/html_node/Standard-Environment.html
 )
 
 func Register(tpl *template.Template, params pgs.Parameters) {
@@ -21,7 +31,7 @@ func Register(tpl *template.Template, params pgs.Parameters) {
 	tpl.Funcs(map[string]interface{}{
 		"accessor":      fns.accessor,
 		"byteStr":       fns.byteStr,
-		"snakeCase":	 fns.snakeCase,
+		"snakeCase":     fns.snakeCase,
 		"cmt":           pgs.C80,
 		"durGt":         fns.durGt,
 		"durLit":        fns.durLit,
@@ -49,43 +59,45 @@ func Register(tpl *template.Template, params pgs.Parameters) {
 		"enumPackages":  fns.enumPackages,
 	})
 
-	template.Must(tpl.New("msg").Parse(msgTpl))
-	template.Must(tpl.New("const").Parse(constTpl))
-	template.Must(tpl.New("ltgt").Parse(ltgtTpl))
-	template.Must(tpl.New("in").Parse(inTpl))
+	i18nBuilder := fns.buildFuncFactory()
 
-	template.Must(tpl.New("none").Parse(noneTpl))
-	template.Must(tpl.New("float").Parse(numTpl))
-	template.Must(tpl.New("double").Parse(numTpl))
-	template.Must(tpl.New("int32").Parse(numTpl))
-	template.Must(tpl.New("int64").Parse(numTpl))
-	template.Must(tpl.New("uint32").Parse(numTpl))
-	template.Must(tpl.New("uint64").Parse(numTpl))
-	template.Must(tpl.New("sint32").Parse(numTpl))
-	template.Must(tpl.New("sint64").Parse(numTpl))
-	template.Must(tpl.New("fixed32").Parse(numTpl))
-	template.Must(tpl.New("fixed64").Parse(numTpl))
-	template.Must(tpl.New("sfixed32").Parse(numTpl))
-	template.Must(tpl.New("sfixed64").Parse(numTpl))
+	template.Must(tpl.New("msg").Funcs(i18nBuilder("msg")).Parse(msgTpl))
+	template.Must(tpl.New("const").Funcs(i18nBuilder("const")).Parse(constTpl))
+	template.Must(tpl.New("ltgt").Funcs(i18nBuilder("float")).Parse(ltgtTpl))
+	template.Must(tpl.New("in").Funcs(i18nBuilder("in")).Parse(inTpl))
 
-	template.Must(tpl.New("bool").Parse(constTpl))
-	template.Must(tpl.New("string").Parse(strTpl))
-	template.Must(tpl.New("bytes").Parse(bytesTpl))
+	template.Must(tpl.New("none").Funcs(i18nBuilder("none")).Parse(noneTpl))
+	template.Must(tpl.New("float").Funcs(i18nBuilder("float")).Parse(numTpl))
+	template.Must(tpl.New("double").Funcs(i18nBuilder("double")).Parse(numTpl))
+	template.Must(tpl.New("int32").Funcs(i18nBuilder("int32")).Parse(numTpl))
+	template.Must(tpl.New("int64").Funcs(i18nBuilder("int64")).Parse(numTpl))
+	template.Must(tpl.New("uint32").Funcs(i18nBuilder("uint32")).Parse(numTpl))
+	template.Must(tpl.New("uint64").Funcs(i18nBuilder("uint64")).Parse(numTpl))
+	template.Must(tpl.New("sint32").Funcs(i18nBuilder("sint32")).Parse(numTpl))
+	template.Must(tpl.New("sint64").Funcs(i18nBuilder("sint64")).Parse(numTpl))
+	template.Must(tpl.New("fixed32").Funcs(i18nBuilder("fixed32")).Parse(numTpl))
+	template.Must(tpl.New("fixed64").Funcs(i18nBuilder("fixed64")).Parse(numTpl))
+	template.Must(tpl.New("sfixed32").Funcs(i18nBuilder("sfixed32")).Parse(numTpl))
+	template.Must(tpl.New("sfixed64").Funcs(i18nBuilder("sfixed64")).Parse(numTpl))
+
+	template.Must(tpl.New("bool").Funcs(i18nBuilder("bool")).Parse(constTpl))
+	template.Must(tpl.New("string").Funcs(i18nBuilder("string")).Parse(strTpl))
+	template.Must(tpl.New("bytes").Funcs(i18nBuilder("bytes")).Parse(bytesTpl))
 
 	template.Must(tpl.New("email").Parse(emailTpl))
 	template.Must(tpl.New("hostname").Parse(hostTpl))
 	template.Must(tpl.New("address").Parse(hostTpl))
 	template.Must(tpl.New("uuid").Parse(uuidTpl))
 
-	template.Must(tpl.New("enum").Parse(enumTpl))
-	template.Must(tpl.New("repeated").Parse(repTpl))
-	template.Must(tpl.New("map").Parse(mapTpl))
+	template.Must(tpl.New("enum").Funcs(i18nBuilder("enum")).Parse(enumTpl))
+	template.Must(tpl.New("repeated").Funcs(i18nBuilder("repeated")).Parse(repTpl))
+	template.Must(tpl.New("map").Funcs(i18nBuilder("map")).Parse(mapTpl))
 
-	template.Must(tpl.New("any").Parse(anyTpl))
-	template.Must(tpl.New("timestampcmp").Parse(timestampcmpTpl))
-	template.Must(tpl.New("durationcmp").Parse(durationcmpTpl))
+	template.Must(tpl.New("any").Funcs(i18nBuilder("any")).Parse(anyTpl))
+	template.Must(tpl.New("timestampcmp").Funcs(i18nBuilder("timestamp")).Parse(timestampcmpTpl))
+	template.Must(tpl.New("durationcmp").Funcs(i18nBuilder("duration")).Parse(durationcmpTpl))
 
-	template.Must(tpl.New("wrapper").Parse(wrapperTpl))
+	template.Must(tpl.New("wrapper").Funcs(i18nBuilder("wrapper")).Parse(wrapperTpl))
 }
 
 type goSharedFuncs struct{ pgsgo.Context }
@@ -322,4 +334,16 @@ func (fns goSharedFuncs) enumPackages(enums []pgs.Enum) map[pgs.FilePath]pgs.Nam
 
 func (fns goSharedFuncs) snakeCase(name string) string {
 	return strcase.ToSnake(name)
+}
+
+func (fns goSharedFuncs) buildFuncFactory() func(translationKeyPrefix string) template.FuncMap {
+	I18n := i18n.New(yaml.New(os.Getenv(envVarLocalesDir)))
+	locale := os.Getenv(envVarLocaleChoice)
+	return func(translationKeyPrefix string) template.FuncMap {
+		return template.FuncMap{"t": func(key string, value string, args ...interface{}) string {
+			key = strings.ReplaceAll(key, "<prefix>", translationKeyPrefix)
+			trln := I18n.Default(value).T(locale, key, args...)
+			return html.UnescapeString(string(trln)) // i18n assumes an HTML context but we're context-agnostic
+		}}
+	}
 }
