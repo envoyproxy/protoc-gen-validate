@@ -103,6 +103,10 @@ bool Validate(const {{ class . }}& m, pgv::ValidationMsg* err) {
 			{{- render (context .) -}}
 		{{ end -}}
 		{{ range .OneOfs }}
+			{{- if required . }}
+				if (m.{{ .Name }}_case() == 0) { return false; }
+			{{ end }}
+
 			switch (m.{{ .Name }}_case()) {
 				{{ range .Fields -}}
 					case {{ oneof . }}:

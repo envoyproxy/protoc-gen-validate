@@ -1183,10 +1183,11 @@ var oneofCases = []TestCase{
 	{"oneof - field - valid (empty)", &cases.OneOf{}, 0},
 	{"oneof - field - invalid (X)", &cases.OneOf{O: &cases.OneOf_X{X: "fizzbuzz"}}, 1},
 	{"oneof - field - invalid (Y)", &cases.OneOf{O: &cases.OneOf_Y{Y: -1}}, 1},
-	{"oneof - filed - invalid (Z)", &cases.OneOf{O: &cases.OneOf_Z{Z: &cases.TestOneOfMsg{}}}, 1},
+	{"oneof - field - invalid (Z)", &cases.OneOf{O: &cases.OneOf_Z{Z: &cases.TestOneOfMsg{}}}, 1},
 
 	{"oneof - required - valid", &cases.OneOfRequired{O: &cases.OneOfRequired_X{X: ""}}, 0},
 	{"oneof - require - invalid", &cases.OneOfRequired{}, 1},
+	{"oneof - none - invalid", &cases.OneOfRequired{O: nil}, 1},
 }
 
 var wrapperCases = []TestCase{
